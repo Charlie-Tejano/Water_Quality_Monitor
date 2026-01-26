@@ -1,6 +1,8 @@
 /*
   ------------------------------------------------------------------------
   Water Quality / Turbidity Comparator (Tap vs Brita Elite) — Arduino Uno R4 WiFi
+  Made by - Charlie Tejano
+  01/26/2026
   ------------------------------------------------------------------------
 
   What this project demonstrates (recruiter-friendly):
@@ -615,7 +617,7 @@ void loop() {
 
 /*
   ------------------------------------------------------------------------
-  Recommended recruiter/demo run (tap vs Brita Elite):
+  Recommended demo run (tap vs Brita Elite):
 
   1) Put sensor in Brita filtered water
   2) Hold button 2 seconds -> saves CLEAR (Brita)
