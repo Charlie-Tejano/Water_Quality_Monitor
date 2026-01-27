@@ -57,9 +57,9 @@
 // ======================================================================
 // Pin assignments (kept simple & readable for reviewers)
 // ======================================================================
-static const int PIN_TURBIDITY = A0; // analog input
-static const int PIN_BUTTON    = 7;  // active-low button to GND
-static const int PIN_LED       = 8;  // status LED
+static const int TURBIDITY_PIN  = A0; // analog input
+static const int BUTTON_PIN     = 7;  // active-low button to GND
+static const int STATUS_LED_PIN = 8;  // status LED
 
 // ======================================================================
 // Sampling & filtering configuration
@@ -240,7 +240,7 @@ static uint16_t readTurbidityMedian() {
   uint16_t samples[MEDIAN_SAMPLE_COUNT];
 
   for (uint8_t i = 0; i < MEDIAN_SAMPLE_COUNT; i++) {
-    samples[i] = (uint16_t)analogRead(PIN_TURBIDITY);
+    samples[i] = (uint16_t)analogRead(TURBIDITY_PIN);
     delay(SAMPLE_SPACING_MS);
   }
 
@@ -357,7 +357,7 @@ static bool buttonLongPressEvent() {
   static bool longFired = false;
 
   // Button is active LOW due to INPUT_PULLUP
-  bool rawPressed = (digitalRead(PIN_BUTTON) == LOW);
+  bool rawPressed = (digitalRead(BUTTON_PIN) == LOW);
   uint32_t now = millis();
 
   // Debounce: track when raw signal changes
@@ -432,9 +432,9 @@ static void showCalScreen(const char* top, const char* bottom) {
 // ======================================================================
 void setup() {
   // --- GPIO setup ---
-  pinMode(PIN_BUTTON, INPUT_PULLUP);
-  pinMode(PIN_LED, OUTPUT);
-  digitalWrite(PIN_LED, LOW);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(STATUS_LED_PIN, OUTPUT);
+  digitalWrite(STATUS_LED_PIN, LOW);
 
   // --- Serial for logging / analysis ---
   Serial.begin(115200);
