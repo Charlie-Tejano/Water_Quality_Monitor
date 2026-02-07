@@ -2,8 +2,9 @@
  - Designed a Water Quality Monitor prototype with an Arduino Uno R4 Wifi to determine the quality of water whether it's - clear, cloudy, unsafe.
  - Arduino R4 Uno WiFi (Turbidity Logger) + Python (pandas) + C++
 
-==============================================================================================================================================================
-# Data Collection Notes
+---------------------------------------------------------
+
+# **Data Collection Notes
 
 Duration intiial data collection, turbidity calibration button (long-press for clear & cloudy reference) was not correctly registered due to a wiring issue.
 
@@ -16,9 +17,8 @@ However:
 - Raw ADC readings ('raw_median', 'ema_raw') are valid
 - Sensor output was stable and consistent over time
 - The dataset is suitable for relative comparison (Brita-filtered water vs. tap water)
-============================================================================================================================================================
 
-
+---------------------------------------------------------
 Goals:
 - Reads a turbidity sensor through the ADC
 - Reduce noise using median filtering
@@ -32,7 +32,7 @@ Ran repeated experiments comparing...
 - The particulate-added solution - tap water + chili powder
 
 
-=================== Hardware Specifications + Wiring ====================
+=================== Hardware Specifications + Wiring ===================
 
 Board: Arduino Uno R4 WiFi
 
@@ -43,8 +43,6 @@ Button: Momentary push button (D7 -> GND, using 'INPUT_PULLUP', Opposite Leg -> 
 LED: Status LED (D8 -> 220(ohm) resistor -> LED -> GND)
 
 LCD1602 I2C: 16x2 I2C LCD (VCC -> 5V, GND -> GND, SDA/SCL -> SDA/SCL pins)
-
-=========================================================================
 
 
 
