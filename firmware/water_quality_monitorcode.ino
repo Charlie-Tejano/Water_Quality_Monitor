@@ -1,7 +1,7 @@
 /*
   ------------------------------------------------------------------------
   Water Quality / Turbidity Comparator (Tap vs Brita Elite) — Arduino Uno R4 WiFi
-  Made by - Charlie Tejano
+  Charlie Tejano
   01/26/2026
   ------------------------------------------------------------------------
 
@@ -54,16 +54,13 @@
 #include <EEPROM.h>
 #include <LiquidCrystal_I2C.h>
 
-// ======================================================================
-// Pin assignments (kept simple & readable for reviewers)
-// ======================================================================
+// Pin assignments
 static const int TURBIDITY_PIN  = A0; // analog input
 static const int BUTTON_PIN     = 7;  // active-low button to GND
 static const int STATUS_LED_PIN = 8;  // status LED
 
-// ======================================================================
+//
 // Sampling & filtering configuration
-// ======================================================================
 //
 // Why filtering?
 //  - Turbidity sensor outputs can be noisy due to:
@@ -81,28 +78,20 @@ static const uint8_t  MEDIAN_SAMPLE_COUNT = 31; // odd -> well-defined median
 static const uint16_t SAMPLE_SPACING_MS   = 3;  // small delay between samples
 static const float    EMA_ALPHA           = 0.20f; // 0.1..0.3 typical
 
-// ======================================================================
 // Button behavior config
-// ======================================================================
 //
 // We use a long-press to avoid accidental calibration writes to EEPROM.
 // The button is debounced using a simple time-based approach.
-//
 static const uint16_t DEBOUNCE_MS    = 40;
 static const uint16_t LONG_PRESS_MS  = 2000;
 
-// ======================================================================
 // LCD config
-// ======================================================================
 //
 // LCD backpacks commonly show up at 0x27 or 0x3F (but not always).
 // We'll scan I2C at startup and pick the first LCD-like device found.
-//
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// ======================================================================
 // Calibration storage in EEPROM
-// ======================================================================
 //
 // We store:
 //  - clearRaw:  sensor reading for "clear" reference water
@@ -113,7 +102,6 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 // We also store:
 //  - magic: identifies that EEPROM contains our expected struct
 //  - crc:   simple checksum to detect random corruption
-//
 struct CalData {
   uint32_t magic;
   uint16_t clearRaw;
@@ -127,20 +115,15 @@ static const int      EEPROM_ADDR = 0;
 static CalData cal {};
 static bool    calLoaded = false;
 
-// ======================================================================
 // Runtime state
-// ======================================================================
 static float emaRaw = -1.0f; // EMA state; -1 indicates "uninitialized"
 
 enum CalStage { CAL_NONE, CAL_WAIT_CLEAR, CAL_WAIT_CLOUDY, CAL_DONE };
 static CalStage calStage = CAL_NONE;
 
-// ======================================================================
 // Helper: checksum for EEPROM data integrity
-// ======================================================================
 //
 // Not cryptographic—just a lightweight guard against accidental corruption.
-//
 static uint16_t checksum16(const CalData &d) {
   uint32_t sum = 0;
   sum += (uint16_t)(d.magic & 0xFFFF);
@@ -150,9 +133,7 @@ static uint16_t checksum16(const CalData &d) {
   return (uint16_t)(sum & 0xFFFF);
 }
 
-// ======================================================================
 // EEPROM: load calibration
-// ======================================================================
 static void loadCalibration() {
   EEPROM.get(EEPROM_ADDR, cal);
 
@@ -177,9 +158,7 @@ static void loadCalibration() {
   calLoaded = true;
 }
 
-// ======================================================================
 // EEPROM: save calibration
-// ======================================================================
 static void saveCalibration(uint16_t clearRaw, uint16_t cloudyRaw) {
   cal.magic    = CAL_MAGIC;
   cal.clearRaw = clearRaw;
@@ -190,17 +169,13 @@ static void saveCalibration(uint16_t clearRaw, uint16_t cloudyRaw) {
   calLoaded = true;
 }
 
-// ======================================================================
 // I2C helper: detect device present at address
-// ======================================================================
 static bool i2cDevicePresent(uint8_t addr) {
   Wire.beginTransmission(addr);
   return (Wire.endTransmission() == 0);
 }
 
-// ======================================================================
 // LCD address scan: find likely LCD backpack address
-// ======================================================================
 static uint8_t findLcdAddress() {
   // Common addresses first:
   const uint8_t candidates[] = { 0x27, 0x3F, 0x26, 0x20, 0x21 };
@@ -216,13 +191,10 @@ static uint8_t findLcdAddress() {
   return 0; // not found
 }
 
-// ======================================================================
 // Median filter utilities
-// ======================================================================
 //
 // Median works great for rejecting spikes.
 // Example: If one sample glitches high/low, median ignores it.
-//
 static void insertionSort(uint16_t *arr, uint8_t n) {
   for (uint8_t i = 1; i < n; i++) {
     uint16_t key = arr[i];
@@ -248,20 +220,16 @@ static uint16_t readTurbidityMedian() {
   return samples[MEDIAN_SAMPLE_COUNT / 2];
 }
 
-// ======================================================================
 // Normalize raw ADC -> turbidity index (0..100)
-// ======================================================================
 //
 // We define turbidity index as:
-///   0   = "as clear as your CLEAR reference" (Brita filtered)
-///   100 = "as cloudy as your CLOUDY reference" (tap water for this demo)
+// 0   = "as clear as your CLEAR reference" (Brita filtered)
+// 100 = "as cloudy as your CLOUDY reference" (tap water for this demo)
 //
 // Note: Many turbidity modules have outputs where "clear" can be higher or lower
 // depending on the module design. We detect direction using the calibration points.
-//
 static int computeTurbidityIndex(uint16_t raw) {
   if (!calLoaded) {
-    // If no calibration, still output something (debug-friendly).
     // This mapping is arbitrary but prevents "blank" output.
     long idx = map(raw, 0, 4095, 100, 0);
     if (idx < 0) idx = 0;
@@ -294,14 +262,11 @@ static int computeTurbidityIndex(uint16_t raw) {
   return idx;
 }
 
-// ======================================================================
 // Human-readable classification (simple thresholds)
-// ======================================================================
 //
-// Recruiter note:
+//    note:
 //  - This is intentionally simple. In real products you'd tune these thresholds
 //    using known NTU references or lab measurements.
-//
 static const int THRESH_CLEAR    = 30;
 static const int THRESH_MODERATE = 70;
 
@@ -311,14 +276,11 @@ static const char* classifyStatus(int idx) {
   return "TURBID";
 }
 
-// ======================================================================
 // LED status behavior
-// ======================================================================
 //
 // CLEAR    -> LED off
 // MODERATE -> LED slow blink
 // TURBID   -> LED on
-//
 static void updateLed(int idx) {
   static uint32_t lastToggle = 0;
   static bool ledState = false;
@@ -341,13 +303,10 @@ static void updateLed(int idx) {
   digitalWrite(PIN_LED, HIGH);
 }
 
-// ======================================================================
 // Button handling: stable long-press detector
-// ======================================================================
 //
 // We debounce and then detect "held down for LONG_PRESS_MS" events.
 // Returns true once per long press (not continuously).
-//
 static bool buttonLongPressEvent() {
   static bool lastRaw = false;
   static bool debounced = false;
@@ -392,9 +351,7 @@ static bool buttonLongPressEvent() {
   return false;
 }
 
-// ======================================================================
 // LCD helper utilities
-// ======================================================================
 static bool lcdAvailable = false;
 
 static void lcdPrint16(const String &line, uint8_t row) {
@@ -427,24 +384,22 @@ static void showCalScreen(const char* top, const char* bottom) {
   lcdPrint16(String(bottom), 1);
 }
 
-// ======================================================================
 // Setup: initialize peripherals and load calibration
-// ======================================================================
 void setup() {
   // --- GPIO setup ---
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(STATUS_LED_PIN, OUTPUT);
   digitalWrite(STATUS_LED_PIN, LOW);
 
-  // --- Serial for logging / analysis ---
+  // Serial for logging / analysis
   Serial.begin(115200);
   delay(200);
 
-  // --- ADC resolution: Uno R4 supports 12-bit ---
+  // ADC resolution: Uno R4 supports 12-bit
   // This improves sensitivity for small differences (e.g., tap vs filtered).
   analogReadResolution(12); // 0..4095
 
-  // --- I2C / LCD ---
+  // I2C / LCD
   Wire.begin();
   uint8_t addr = findLcdAddress();
   if (addr != 0) {
@@ -454,47 +409,36 @@ void setup() {
     lcdAvailable = true;
   }
 
-  // --- Load calibration from EEPROM ---
+  // Load calibration from EEPROM
   loadCalibration();
 
-  // --- Startup message ---
+  // Startup message
   if (lcdAvailable) {
     showCalScreen("Turbidity Monitor", calLoaded ? "Cal: LOADED" : "Cal: NOT SET");
     delay(1200);
   }
 
-  // --- CSV header (easy for pandas) ---
+  // CSV header - easy for pandas
   Serial.println("ms,raw_median,ema_raw,index,status,cal_loaded,clear_raw,cloudy_raw");
 }
 
-// ======================================================================
-// Main loop: calibration flow + sampling + UI + logging
-// ======================================================================
+// Main loop - calibration flow + sampling + UI + logging
 void loop() {
-  // ------------------------------------------------------------
-  // 1) Decide whether we should be in calibration mode
-  // ------------------------------------------------------------
-  //
+
   // If the device has never been calibrated (fresh EEPROM),
   // we automatically prompt the user to calibrate.
-  //
   if (!calLoaded && calStage == CAL_NONE) {
     calStage = CAL_WAIT_CLEAR;
   }
 
-  // ------------------------------------------------------------
-  // 2) Handle calibration actions (long press)
-  // ------------------------------------------------------------
-  //
-  // Calibration procedure for your experiment:
-  //   CLEAR  = Brita Elite filtered water
-  //   CLOUDY = tap water
+  // CLEAR  = Brita Elite filtered water
+  // CLOUDY = tap water
   //
   // Each long press captures a stable median reading.
   //
   if (buttonLongPressEvent()) {
 
-    // A) Capture CLEAR reference
+    // Capture CLEAR reference
     if (calStage == CAL_WAIT_CLEAR) {
       uint16_t clearRaw = readTurbidityMedian();
       cal.clearRaw = clearRaw; // store temporarily in RAM
@@ -509,7 +453,7 @@ void loop() {
       delay(900);
     }
 
-    // B) Capture CLOUDY reference
+    // Capture CLOUDY reference
     else if (calStage == CAL_WAIT_CLOUDY) {
       uint16_t cloudyRaw = readTurbidityMedian();
       saveCalibration(cal.clearRaw, cloudyRaw);
@@ -524,7 +468,7 @@ void loop() {
       delay(900);
     }
 
-    // C) If already calibrated, long press restarts calibration
+    // If already calibrated, long press restarts calibration
     else {
       calLoaded = false;
       calStage = CAL_WAIT_CLEAR;
@@ -538,9 +482,7 @@ void loop() {
     }
   }
 
-  // ------------------------------------------------------------
-  // 3) If in calibration stages, show instructions
-  // ------------------------------------------------------------
+  // If in calibration stages, show instructions
   if (lcdAvailable) {
     if (calStage == CAL_WAIT_CLEAR) {
       showCalScreen("CAL: Brita CLEAR", "Hold btn 2s...");
@@ -549,46 +491,31 @@ void loop() {
     }
   }
 
-  // ------------------------------------------------------------
-  // 4) Read sensor (median burst)
-  // ------------------------------------------------------------
+  // Read sensor (median burst)
   uint16_t rawMedian = readTurbidityMedian();
 
-  // ------------------------------------------------------------
-  // 5) Smooth via EMA (stabilizes display & logging)
-  // ------------------------------------------------------------
+  // Smooth via EMA (stabilizes display & logging)
   //
   // EMA provides temporal smoothing:
-  //   ema = alpha*new + (1-alpha)*old
-  //
   if (emaRaw < 0.0f) emaRaw = (float)rawMedian;
   emaRaw = EMA_ALPHA * (float)rawMedian + (1.0f - EMA_ALPHA) * emaRaw;
 
   uint16_t emaRounded = (uint16_t)(emaRaw + 0.5f);
 
-  // ------------------------------------------------------------
   // 6) Convert to normalized turbidity index
-  // ------------------------------------------------------------
   int idx = computeTurbidityIndex(emaRounded);
   const char* status = classifyStatus(idx);
 
-  // ------------------------------------------------------------
-  // 7) Update LED output
-  // ------------------------------------------------------------
   updateLed(idx);
 
-  // ------------------------------------------------------------
-  // 8) Update LCD (only if not actively prompting calibration)
-  // ------------------------------------------------------------
+  // Update LCD (only if not actively prompting calibration)
   if (lcdAvailable) {
     if (calStage != CAL_WAIT_CLEAR && calStage != CAL_WAIT_CLOUDY) {
       showNormalScreen(rawMedian, emaRounded, idx);
     }
   }
 
-  // ------------------------------------------------------------
-  // 9) Serial CSV logging (for Python/pandas later)
-  // ------------------------------------------------------------
+  // Serial CSV logging (for Python/pandas later)
   Serial.print(millis());
   Serial.print(",");
   Serial.print(rawMedian);
@@ -605,31 +532,6 @@ void loop() {
   Serial.print(",");
   Serial.println(calLoaded ? cal.cloudyRaw : 0);
 
-  // ------------------------------------------------------------
-  // 10) Loop pacing
-  // ------------------------------------------------------------
-  //
   // Keep loop rate human-friendly for LCD + Serial.
-  // If you want higher-rate logging for analysis, reduce delay.
-  //
   delay(350);
 }
-
-/*
-  ------------------------------------------------------------------------
-  Recommended demo run (tap vs Brita Elite):
-
-  1) Put sensor in Brita filtered water
-  2) Hold button 2 seconds -> saves CLEAR (Brita)
-  3) Move sensor to tap water
-  4) Hold button 2 seconds -> saves CLOUDY (Tap)
-  5) Now the index:
-       0   ~ close to Brita
-       100 ~ close to tap
-     (Your results depend on sensor module + water differences)
-
-  Tip:
-    - Keep water still for each calibration capture (median is robust,
-      but motion/bubbles can still influence readings).
-  ------------------------------------------------------------------------
-*/
